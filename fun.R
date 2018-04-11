@@ -4,7 +4,7 @@ library(tidyverse)
 bilanz <<- read_csv("buchhaltung.csv")
 mitglieder <<- read_csv("mitglieder.csv")
 produckte <<- read_csv("produckt_info.csv")
-str(bilanz)
+#str(bilanz)
 #erstellung der Preis_ID immer wenn die Daten neu geladen werden.
 
 get_preis_ID <- function(BilanzX, NameY){
@@ -18,7 +18,7 @@ get_preis_ID <- function(BilanzX, NameY){
       Preis_ID = ifelse(lag(cumsoll) < 0 & cumsoll >= 0, lag(Preis_ID) + 1, 1)
     ) %>% ## hier habe ich für die else-bedingung statt der 1 das lag(Preis_ID) hingeschrieben!
     replace_na(list(Preis_ID = 1)) %>% 
-    mutate(Preis_ID = cumprod(Preis_ID))  %>% 
+    mutate(Preis_ID = cumprod(Preis_I(D))  %>% 
     summarise(Preis_ID = last(Preis_ID))
   return(preis_ID)
 }
@@ -26,20 +26,21 @@ get_preis_ID <- function(BilanzX, NameY){
 ## Funktion, die die aktuelle Preis_Id berechnet, mit der man das Produkt einkauft.
 get_preis_ID2 <- function(BilanzX, NameY){ 
   preis_ID <- BilanzX %>%
-    arrange(Datum) %>% 
-    #group_by(Name == NameY) %>% 
-    filter(Name == NameY & Verwendung == "Verkauf") 
-  z <- max(preis_ID$Preis_ID) ## aktuelle Preis_ID
+    filter(Name == NameY & Verwendung == "Verkauf") %>% 
+    summarise(z = max(Preis_ID))## aktuelle Preis_ID
   
-  bereitsVerkauft <- preis_ID %>% 
-    filter(Preis_ID == z) %>% 
-    summarise(MengeAktuelleID = sum(Haben))
+  ## hier noch eine Warnmeldung einbauen, für den Fall, das unter Reis andere Verwendungen gebucht wurden als Verkauf und Wareneinkauf.
+  if(unique(filter(BilanzX, Name == NameY)$Verwendung) %in% c("Verkauf", "Wareneinkauf")){
+    warning("Achtung ")
+  }
+    
+  AktuelleID <- BilanzX %>% 
+    filter(Name == NameY & Preis_ID == preis_ID$z) %>% 
+    #group_by(Verwendung) %>% 
+    summarise(Haben = sum(Haben)-sum(Soll))
+    #summarise(HabenAktuelleID = sum(Haben), SollAktuelleID = sum(Soll))
   
-  EinkaufsmengeAktuelleID <- BilanzX %>% 
-    filter(Name == NameY & Verwendung == "Wareneinkauf" & Preis_ID == z) %>% 
-    summarise(MengeLetzteBestellung = sum(Soll))
-  
-  if(bereitsVerkauft >= EinkaufsmengeAktuelleID){ ## wenn T, dann muss neue ID vergeben werden
+  if(AktuelleID > 0){ ## wenn T, dann muss neue ID vergeben werden
     aktuellePreis_ID <- z + 1
   } else {
     aktuellePreis_ID <- z
