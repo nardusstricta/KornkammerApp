@@ -56,3 +56,4 @@ Datum ,Name,Soll,Haben ,Verwendung ,Preis_ID,Rechnungs_ID
 2018-04-11,Nele,100,0,Einkauf,1,1
 "2018-04-11","Apfelsaft","50",0,"Wareneinkauf",1,"25"
 "2018-04-11","Apfelsaft","0",0,"Wareneinkauf",1,"25"
+"2018-04-11","Reis","70",0,"Wareneinkauf",1,"0"

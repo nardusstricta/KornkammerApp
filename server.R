@@ -19,7 +19,7 @@ shinyServer(function(input, output, session) {
     if(input$best > 0) {
       #create the new line to be added from your inputs
       newLine <- isolate(c(as.character(input$date1),input$Name, 
-                           as.numeric(input$menge) * as.numeric(unlist(get_cur_price(ProduckteX = produckte, NameY = input$produckt, unlist(get_preis_ID(BilanzX = bilanz, NameY = input$produckt))))),
+                           as.numeric(input$menge) * as.numeric(unlist(get_cur_price2(ProduckteX = produckte, NameY = input$produckt, unlist(get_preis_ID2(BilanzX = bilanz, NameY = input$produckt))))),
                            input$produckt))
       isolate(values$df <- rbind(as.matrix(values$df), unlist(newLine)))
       data_temp <<- values$df
