@@ -19,7 +19,7 @@ shinyServer(function(input, output, session) {
     if(input$best > 0) {
       #create the new line to be added from your inputs
       newLine <- isolate(c(as.character(input$date1),input$Name, 
-                           as.numeric(input$menge)* produckte$Preis[which(produckte$Name == input$produckt)],
+                           as.numeric(input$menge) * as.numeric(unlist(get_cur_price(ProduckteX = produckte, NameY = input$produckt, unlist(get_preis_ID(BilanzX = bilanz, NameY = input$produckt))))),
                            input$produckt))
       isolate(values$df <- rbind(as.matrix(values$df), unlist(newLine)))
       data_temp <<- values$df
@@ -47,12 +47,12 @@ shinyServer(function(input, output, session) {
                          len <- length(data_temp$Datum)
                          prod_temp <- data.frame(Datum = data_temp$Datum, Name = data_temp$Produckt, Soll = rep(0, len),
                                                  Haben = as.numeric(as.character(data_temp$Soll)), Verwendung = rep("Verkauf", len),
-                                                 Rechnungs_ID = rep(1, len), Bestellungs_ID = rep(1, len))
+                                                 Preis_ID = rep(1, len), Rechnungs_ID = rep(1, len))
                          
                          user_temp <- data.frame(Datum = data_temp$Datum, Name = data_temp$Name, 
                                                  Soll = as.numeric(as.character(data_temp$Soll)), Haben = rep(0, len),
-                                                 Verwendung = rep("Einkauf", len), Rechnungs_ID = rep(1, len), 
-                                                 Bestellungs_ID = rep(1, len))
+                                                 Verwendung = rep("Einkauf", len), Pries_ID = rep(1, len), 
+                                                 Rechnungs_ID = rep(1, len))
                         
                          bilanz_temp <- rbind(user_temp, prod_temp)
                          
@@ -132,7 +132,7 @@ shinyServer(function(input, output, session) {
                      inp_bilanz_temp <- data.frame(Datum = inp_temp$Datum, Name = inp_temp$Name, 
                                                    Soll = inp_temp$Soll,
                                                    Haben = rep(0, len2), Verwendung = rep("Wareneinkauf", len2),
-                                                   Rechnungs_ID = rep(1, len2), Bestellungs_ID = inp_temp$Preis_ID)
+                                                   Preis_ID = rep(1, len2), Rechnungs_ID = inp_temp$Preis_ID)
                      write.table(inp_bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F)
                      bilanz <<- read_csv("buchhaltung.csv")
                    }) 
