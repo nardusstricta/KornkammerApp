@@ -1,71 +1,68 @@
 library(shiny)
 library(DT)
 library(tidyverse)
-bilanz <<- read_csv("buchhaltung.csv")
-mitglieder <<- read_csv("mitglieder.csv")
-produckte <<- read_csv("produckt_info.csv")
-#str(bilanz)
-#erstellung der Preis_ID immer wenn die Daten neu geladen werden.
+library(lubridate)
 
-get_preis_ID <- function(BilanzX, NameY){
-  preis_ID <- BilanzX %>%
-    arrange(Datum) %>% 
-    #group_by(Name == NameY) %>% 
-    filter(Name == NameY) %>% 
-    mutate(cumsoll = cumsum(Haben-Soll)) %>% 
-    mutate(Preis_ID = 1) %>% 
-    mutate(
-      Preis_ID = ifelse(lag(cumsoll) < 0 & cumsoll >= 0, lag(Preis_ID) + 1, 1)
-    ) %>% ## hier habe ich für die else-bedingung statt der 1 das lag(Preis_ID) hingeschrieben!
-    replace_na(list(Preis_ID = 1)) %>% 
-    mutate(Preis_ID = cumprod(Preis_I(D))  %>% 
-    summarise(Preis_ID = last(Preis_ID))
-  return(preis_ID)
-}
+bilanz <<- read_csv("buchhaltung.csv")
+mitglieder <<- read_csv("~/Dokumente/foodcop/foodcop_test/mitglieder.csv", 
+                        col_types = cols(Datum = col_date(format = "%Y-%m")))
+produckte <<- read_csv("produckt_info.csv")
 
 ## Funktion, die die aktuelle Preis_Id berechnet, mit der man das Produkt einkauft.
 get_preis_ID2 <- function(BilanzX, NameY){ 
   preis_ID <- BilanzX %>%
     filter(Name == NameY & Verwendung == "Verkauf") %>% 
     summarise(z = max(Preis_ID))## aktuelle Preis_ID
+  #Wenn noch kein Verkauf stattgefunden hat dann ist preis_ID = -inf dann soll die minimale Preis_ID genommen werden:
+  if(preis_ID == -Inf){
+      preis_ID <- BilanzX %>%
+      filter(Name == NameY) %>% 
+      summarise(z = min(Preis_ID))
+  }
   
-  ## hier noch eine Warnmeldung einbauen, für den Fall, das unter Reis andere Verwendungen gebucht wurden als Verkauf und Wareneinkauf.
+  ## hier noch eine Warnmeldung einbauen, für den Fall, dass unter Reis andere Verwendungen gebucht wurden als Verkauf und Wareneinkauf.
   if(unique(filter(BilanzX, Name == NameY)$Verwendung) %in% c("Verkauf", "Wareneinkauf")){
     warning("Achtung ")
   }
     
   AktuelleID <- BilanzX %>% 
     filter(Name == NameY & Preis_ID == preis_ID$z) %>% 
-    #group_by(Verwendung) %>% 
     summarise(Haben = sum(Haben)-sum(Soll))
-    #summarise(HabenAktuelleID = sum(Haben), SollAktuelleID = sum(Soll))
-  
+
   if(AktuelleID > 0){ ## wenn T, dann muss neue ID vergeben werden
-    aktuellePreis_ID <- z + 1
+    aktuellePreis_ID <- preis_ID$z + 1
   } else {
-    aktuellePreis_ID <- z
+    aktuellePreis_ID <- preis_ID$z
   }
   return(aktuellePreis_ID)
 }
 
-preis_IDZ <- get_preis_ID2(BilanzX = bilanz, NameY = "Reis")
 
-get_cur_price2 <- function(ProduckteX, NameY, preis_IDZ){
+#Reingewinn geht aktuell nur mit get_cur_price2 ID
+get_cur_price2 <- function(ProduckteX, NameY1, BilanzX1, ID = F){
+  preis_IDZ <- get_preis_ID2(BilanzX = BilanzX1, NameY = NameY1)
   cur_price <- ProduckteX %>%
-    filter(Name == NameY & Preis_ID == preis_IDZ)
-  return(cur_price$Preis)
+    filter(Name == NameY1 & Preis_ID == preis_IDZ)
+  
+  if(length(cur_price$Preis_ID)==0){
+    cur_price <- ProduckteX %>%
+      filter(Name == NameY1 & Preis_ID == preis_IDZ - 1)
+    ifelse(ID == T, return(cur_price$Preis_ID), return(cur_price$Preis))
+    
+  }else{
+    ifelse(ID == T, return(cur_price$Preis_ID), return(cur_price$Preis))
+  }
 }
 
 
-get_cur_price <- function(ProduckteX, NameY, preis_IDZ){
+get_cur_Lieferant <- function(ProduckteX, NameY1, BilanzX1){
+  preis_IDZ <- get_preis_ID2(BilanzX = BilanzX1, NameY = NameY1)
   cur_price <- ProduckteX %>%
-    filter(Name == NameY & Preis_ID == preis_IDZ)
-  return(cur_price$Preis)
+  filter(Name == NameY1 & Preis_ID == preis_IDZ)
+  return(cur_price$Lieferant)
 }
 
-get_cur_price(ProduckteX = produckte, NameY = "Reis", unlist(get_preis_ID(BilanzX = bilanz, NameY = "Reis")))
-#Funktion eigener Kontostand:
-
+#Funktion eigener Kontostand: ## muss noch erweitert werden (-Einlage - Mitgliederbeiträge)
 fun_kont <- function(BilanzX, NameY){
     BilanzX %>% 
     filter(Name == NameY) %>% 
@@ -75,11 +72,52 @@ fun_kont <- function(BilanzX, NameY){
 }
 
 #Funktion für die Einheiten:
-
 fun_einh <- function(ProduckteX, NameY){
   ProduckteX %>% 
   distinct(Name, Einheit) %>% 
   filter(Name==NameY) %>% 
   select(Einheit)
+}
+
+## Funktion, die den neu eingebuchten Produkten die Preis_ID gibt:
+fun_produkt_count <- function(ProduckteX, NameY){
+  erg <- ProduckteX %>% 
+    filter(Name == NameY) %>% 
+    summarise(max_ID = max(Preis_ID))
+  return(erg + 1)
+} 
+
+## Funktion, die den komlpetten Warenbestand eines Produktes filtert.
+fun_war <- function(BilanzX, NameY){
+  erg_war <- BilanzX %>% 
+    filter(Name == NameY) %>% 
+    arrange(Datum) %>% 
+    mutate(cumsoll =  cumsum(Soll) - cumsum(Haben)) %>% 
+    select(Datum, cumsoll)
+  return(erg_war)
+}
+
+#Funktionen Für die Mitgliederverwaltung:
+
+#Funktion welche aus einem Jahreseintrag 12 Jahres einträge macht:
+#
+row_rep <- function(df, n) {
+  df[rep(1:nrow(df), times = n),]
+}
+month_member <- function(MitgliederX, NameY){
+  mit <- MitgliederX %>% 
+    filter(Name == NameY) %>% 
+    summarise(n = n())
+  if(unlist(mit < 12)){
+    new_mit <- data.frame(seq(1:12), row_rep(MitgliederX %>% 
+                                              filter(Name == NameY), 12))
+  }
+}
+
+get_mitglieder <- function(MitgliederX, NameY, DateZ){
+  mit2 <- MitgliederX %>% filter(Name == NameY) %>% 
+    mutate(year = year(Datum)) %>%
+  filter(year == DateZ)
+  return(mit2)
 }
 

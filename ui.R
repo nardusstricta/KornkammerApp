@@ -1,9 +1,7 @@
 library(shiny)
 library(DT)
 library(tidyverse)
-bilanz <<- read_csv("buchhaltung.csv")
-mitglieder <<- read_csv("mitglieder.csv")
-produckte <<- read_csv("produckt_info.csv")
+
 
 shinyUI(fluidPage(
   tabsetPanel(
@@ -11,16 +9,17 @@ shinyUI(fluidPage(
   sidebarLayout(
       wellPanel(style="overflow:hidden;",
                 splitLayout(selectInput(inputId = 'Name', label = 'Vorname', 
-                                        choices = c("Konto", mitglieder$Name), selectize=F), 
+                                        choices = c("Konto",  unique(mitglieder$Name)), selectize=F), 
                             dateInput("date1", "Bestelldatum:", value = Sys.Date())),
                 splitLayout(selectInput(inputId = "produckt", label = "Produckt", 
-                                        choices = c("Auswahl",  produckte$Name), selectize=F),
+                                        choices = unique(c("Auswahl",  produckte$Name)), selectize=F),
                   numericInput("menge", "Menge", min = 1, max = 1000, value = 0),
-                            textOutput("einheit")),
+                            textOutput("einheit"), textOutput("preis_pro_gewicht")),
 splitLayout(
   actionButton("best", "In den Warenkorb"),
   actionButton("deleteRows", "Aus den Warenkorb"),
-  textOutput("Kontostand")
+  textOutput("Kontostand"),
+  textOutput("Lieferant")
     )),
     mainPanel(
       actionButton("kaufen", 'Kaufen', style = "color: black;background-color: yellow"),
@@ -33,11 +32,11 @@ tabPanel("Produckte Importiern",
          sidebarLayout(
            wellPanel(
              splitLayout(
-             selectInput("inp_name", "Produckt", choices = produckte$Name,  selectize=F),
-             selectInput("inp_lieferant", "Lieferant", choices = c("Auswahl", produckte$Lieferant),  selectize=F),
+             selectInput("inp_name", "Produckt", choices = c("Auswahl", unique(produckte$Name)),  selectize=F),
+             selectInput("inp_lieferant", "Lieferant", choices = c("Auswahl", unique(produckte$Lieferant)),  selectize=F),
              numericInput("inp_preis", "Gesamtpreis", min = 1, max = 1000, value = 0)),
              splitLayout(
-             selectInput("inp_einheit", "Einheit", choices = c(NA,"kg", "g", "l"),  selectize=F),
+             selectInput("inp_einheit", "Einheit", choices = c("kg", "g", "l"),  selectize=F),
              numericInput("inp_menge", "Gesamtmenge", value = 0),
              numericInput("inp_rech_ID", "Rechnungs_ID", min = 1, max = 1000, value = 0),
              dateInput("inp_date", "Datum Wareneingang", value = Sys.Date())
@@ -59,17 +58,33 @@ tabPanel("Produckte Importiern",
 tabPanel("Konotauszug importiern",
          sidebarLayout(
            wellPanel(
-         fileInput("file1", "Wähle aktuellen Konotauszug CSV File",
+         fileInput("import", "Load Model Data",
                    accept = c(
                      "text/csv",
                      "text/comma-separated-values,text/plain",
                      ".csv"),
-                   buttonLabel = "Suchen")),
+                   buttonLabel = "Suchen"),
+         actionButton("save_gls", 'speichern', style = "color: white;background-color: red")
+         ),
          mainPanel(
-           tableOutput("contents")
+           rHandsontableOutput("hot")
          ))),
-tabPanel("Verwaltung"
+tabPanel("Verwaltung",
+         sidebarPanel(
+           wellPanel(
+             splitLayout(
+           selectInput("ver_name", "Name", choices = c("Auswahl", unique(mitglieder$Name))),
+           selectInput("ver_date", "Jahr", choices = 2015:2025)
+         ))),mainPanel(
+           actionButton("ver_save", 'speichern', style = "color: black;background-color: yellow"),
+           dataTableOutput("table3")
+         )
 ),
-tabPanel("aktueller Warenstand"
+tabPanel("aktueller Warenstand",
+         titlePanel(title=h4("aktueller Warenstand", align="center")),
+         sidebarPanel( 
+           selectInput("war_name", "Produckt", choices = c("Auswahl", unique(produckte$Name)),  selectize=F),
+           uiOutput("war_slider")),
+         mainPanel(plotOutput("war_plot"))
 )
 )))
