@@ -3,3 +3,4 @@ Preis_ID,Name ,Lieferant ,Preis,Einheit ,Datum
 1,Apfelsaft,Markenhof,1.22,l,2018-03-01
 "2","Reis","Alnatura","2","kg","2018-04-14"
 "3","Reis","Alnatura","3","kg","2018-04-15"
+"2","Apfelsaft","Markenhof","2","l","2018-04-15"

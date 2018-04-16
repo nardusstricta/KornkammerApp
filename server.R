@@ -1,7 +1,5 @@
-library(shiny)
-library(DT)
-library(dplyr)
-library(rhandsontable)
+
+
 #Temp Ordner Tabelle
 
 
@@ -12,7 +10,6 @@ shinyServer(function(input, output, session) {
                                       Soll = as.numeric(), Produckt = as.character(), Preis_ID = as.character())
   data_temp_ini <- data_temp
   values <- reactiveValues(df = data_temp)
-  #values$df <- data_temp
   
   observeEvent(input$best,{
     if(input$best > 0) {
@@ -50,7 +47,7 @@ shinyServer(function(input, output, session) {
 # Daten in den Database schreiben:
       observeEvent(input$kaufen,{
         data_temp <- values$df
-        if(length(data_temp[,1]) > 0){
+        if(nrow(data_temp) > 0){
           withProgress(message = 'Die Bestellung wird gespeichert',
                        detail = 'Ein bisschen Geduld muss da schon sein ...', value = 0, {
                          for (i in 1:15) {
@@ -153,21 +150,27 @@ shinyServer(function(input, output, session) {
   )
   inp_temp_ini <- inp_temp # wenn gespeichert wird, dann wird die inp_temp später mit den initialwerten (inp_temp_ini) überschrieben (= Tabelle wird geleert)
   values_inp <- reactiveValues(df_inp = inp_temp)
-  #values_inp$df_inp <- inp_temp
   
   observeEvent(input$inp_merk,{
     if(input$inp_merk > 0) {
       #create the new line to be added from your inputs
       newLine2 <- isolate(c(
-        input$inp_rech_ID, input$inp_name, input$inp_lieferant,
-        input$inp_preis, input$inp_einheit, as.character(input$inp_date), 
+        input$inp_rech_ID, 
+        input$inp_name, 
+        input$inp_lieferant,
+        input$inp_preis, 
+        input$inp_einheit, 
+        as.character(input$inp_date), 
         as.numeric(fun_produkt_count(produckte, input$inp_name))
       ))
-      isolate(values_inp$df_inp <- rbind(as.matrix(values_inp$df_inp), unlist(newLine2)))
+      isolate(
+        values_inp$df_inp <- rbind(as.matrix(values_inp$df_inp), unlist(newLine2))
+      )
       updateNumericInput(session, "inp_preis", value = 0)
       updateTextInput(session, "inp_name", value = "Auswahl")
     }
   })
+  
   observeEvent(input$inp_delrows,{
     if (!is.null(input$table2_rows_selected)) {
       values_inp$df_inp <- values_inp$df_inp[-as.numeric(input$table2_rows_selected),]
@@ -177,7 +180,7 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$inp_save,{
     inp_temp <- values_inp$df_inp
-    if(length(inp_temp[,1]) > 0){
+    if(nrow(inp_temp)>0){
       withProgress(message = 'Der Import wird gespeichert',
                    detail = 'Das hast du super gemacht! Zeit für etwas Entspannung ...', value = 0, {
                      for (i in 1:15) {
@@ -187,11 +190,18 @@ shinyServer(function(input, output, session) {
                      inp_temp <- as.data.frame(inp_temp)
                      names(inp_temp) <-  c("Rechnungs_ID", "Name", "Lieferant", "Soll", "Einheit", "Datum","Preis_ID")
                      len2 <- length(inp_temp$Datum)
-                     inp_bilanz_temp <- data.frame(Datum = inp_temp$Datum, Name = inp_temp$Name, 
-                                                   Soll = inp_temp$Soll,
-                                                   Haben = rep(0, len2), Verwendung = rep("Wareneinkauf", len2),
-                                                   Preis_ID = inp_temp$Preis_ID, Rechnungs_ID = inp_temp$Rechnungs_ID)
-                     write.table(inp_bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F)
+                     inp_bilanz_temp <- data.frame(
+                       Datum = inp_temp$Datum, 
+                       Name = inp_temp$Name, 
+                       Soll = inp_temp$Soll,
+                       Haben = rep(0, len2), 
+                       Verwendung = rep("Wareneinkauf", len2),
+                       Preis_ID = inp_temp$Preis_ID, 
+                       Rechnungs_ID = inp_temp$Rechnungs_ID
+                     )
+                     write.table(
+                       inp_bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F
+                     )
                      bilanz <<- read_csv("buchhaltung.csv")
                      
                      inp_produckt_temp <- data.frame(
@@ -202,22 +212,24 @@ shinyServer(function(input, output, session) {
                        Einheit = inp_temp$Einheit,
                        Datum = inp_temp$Datum
                      )
-                     write.table(inp_produckt_temp, "produckt_info.csv", sep = ",", col.names = F, append = T, row.names = F)
+                     write.table(
+                       inp_produckt_temp, "produckt_info.csv", sep = ",", col.names = F, append = T, row.names = F
+                     )
                      produckte <<- read_csv("produckt_info.csv")
-                     
                    }) 
-      values_inp$df_inp <- inp_temp_ini
-      showModal(modalDialog(
+      values_inp$df_inp <- inp_temp_ini ## Inputwerte werden aus initialWerte gesetzt.
+      showModal(modalDialog( ## Bestätigung, dass es geklappt hat.
         title = "Der Import war erfolgreich!",
         paste("Den Warenkonten in der Kornkammer wurde in der Summe folgender Betrag gut geschrieben", 
               sum(as.numeric(as.character(inp_bilanz_temp$Soll))), "Euro"),
         easyClose = TRUE
       ))
       
-    }else{
+    } else {
       showModal(modalDialog(
-        title = "Bestellung war nicht erfolgreich!",
-        paste("Keine Ware im Warenkorb"),
+        color = "red",
+        title = "Bestellung war nicht erfolgreich! :-(",
+        paste("Keine Ware auf der Liste"),
         easyClose = TRUE
       ))
     }
@@ -226,10 +238,12 @@ shinyServer(function(input, output, session) {
   
   #output$table2 <- renderDataTable({values_inp$df_inp})
   
-  output$table2 <- renderDataTable(datatable(values_inp$df_inp,
-            # Hide logical columns
-            options=list(columnDefs = list(list(visible=FALSE, 
-                                                targets=6)))))
+  output$table2 <- renderDataTable(
+    values_inp$df_inp,
+    # Hide logical columns
+    options=list(columnDefs = list(list(visible=FALSE, 
+                                        targets=6)))
+  )
   
    output$inp_wert <- renderText({
      paste("Gesamtpreis aktuelle Rechnung in €", sum(as.numeric(as.character(values_inp$df_inp[,4]))))
@@ -273,31 +287,34 @@ shinyServer(function(input, output, session) {
   #Tab4 Verwaltung:
   #
   
-  output$table3 <- renderDataTable(datatable(get_mitglieder(MitgliederX=mitglieder, NameY =input$ver_name,
-                                                           DateZ = input$ver_date), editable = T,
-                                             extensions = c('Buttons'),
-                                             # Hide logical columns
-                                             options=list(columnDefs = list(list(visible=FALSE, 
-                                                                                 targets=c(4,6))),
-                                                                            dom = 'Bfrtip',
-                                                                            deferRender = TRUE,
-                                                                            scrollY = 400,
-                                                                            buttons = 'copy'))
-                                             )
+  output$table3 <- renderDataTable({
+      datatable(
+      get_mitglieder(
+        MitgliederX=mitglieder, NameY =input$ver_name, DateZ = input$ver_date
+      ), 
+      editable = T, selection = 'single',
+      # Hide logical columns
+      options=list(
+        columnDefs = list(list(visible=FALSE, targets=c(6,7)))
+      )
+    )}
+  )
+  observeEvent(input$ver_save, {
+    test <<- input$table3_cell_edit
+  })
+  
   #      
   # Tab5 Aktueller Warenstand:------
   # 
   output$war_slider <- renderUI({
-    dateRangeInput("war_date_from",
-                "Daten von:",
-                min = min(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
-                max = max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
-                start = Sys.Date()-2, end = max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum))
-                #value= max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
-                #timeFormat="%Y-%m-%d")
-    
+    dateRangeInput(
+      "war_date_from",
+      "Daten von:",
+      min = min(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
+      max = max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
+      start = Sys.Date()-2, end = max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum)
+    )
   })
-  
   
   output$war_plot <- renderPlot({
     zwar <- fun_war(BilanzX = bilanz, NameY = input$war_name)
@@ -307,10 +324,9 @@ shinyServer(function(input, output, session) {
     # draw the histogram with the specified number of bins
     ggplot(zwar[zwar$Datum >= min & zwar$Datum <= max, ], aes(x=Datum, y=cumsoll))+
       geom_line()+
-      geom_smooth()+
+      #geom_smooth()+
       labs(title=paste("Num")) +
       xlab("Time") +
       ylab("NumP") 
   })
-
 })  

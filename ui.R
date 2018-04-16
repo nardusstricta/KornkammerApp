@@ -1,6 +1,8 @@
 library(shiny)
 library(DT)
 library(tidyverse)
+library(lubridate)
+library(rhandsontable)
 
 
 shinyUI(fluidPage(
@@ -71,7 +73,7 @@ tabPanel("Konotauszug importiern",
          ))),
 tabPanel("Verwaltung",
          sidebarPanel(
-           wellPanel(
+           wellPanel(strong("Hier kannst du deine Kontoauszüge einsehen und als pdf speichern, Informationen über deine Mitgliedschaft ändern (z.B. wenn sich die Anzahl der Mitglieder in deiner Mitgliedschaft ändert) und die Jahresbilanz der Kornkammer einsehen."),
              splitLayout(
            selectInput("ver_name", "Name", choices = c("Auswahl", unique(mitglieder$Name))),
            selectInput("ver_date", "Jahr", choices = 2015:2025)

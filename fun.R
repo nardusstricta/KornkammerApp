@@ -4,9 +4,21 @@ library(tidyverse)
 library(lubridate)
 
 bilanz <<- read_csv("buchhaltung.csv")
-mitglieder <<- read_csv("~/Dokumente/foodcop/foodcop_test/mitglieder.csv", 
-                        col_types = cols(Datum = col_date(format = "%Y-%m")))
+mitglieder <<- read_csv(
+  "mitglieder.csv", 
+  col_types = cols(Datum = col_date(format = "%Y-%m-%d"))
+)
+## Bei Jahreswechsel werden automatisch für jeden Account neue Zeilen erstellt, für jeden Monat.
+## !!! Achtung! wenn schon händisch eine Zeile des neuen Jahres eingetragen wurde, bevor diese Funktion abgeschickt wurde, wird das nicht mehr passieren!
+if(lubridate::year(max(mitglieder$Datum)) != year(Sys.Date())){
+  mitglieder_neu <- expand_mitglieder(mitglieder)
+  write_csv(mitglieder_neu, "mitglieder.csv")
+  mitglieder <<- read_csv("mitglieder.csv", 
+                          col_types = cols(Datum = col_date(format = "%Y-%m-%d")))
+}
+
 produckte <<- read_csv("produckt_info.csv")
+
 
 ## Funktion, die die aktuelle Preis_Id berechnet, mit der man das Produkt einkauft.
 get_preis_ID2 <- function(BilanzX, NameY){ 
@@ -38,7 +50,7 @@ get_preis_ID2 <- function(BilanzX, NameY){
 }
 
 
-#Reingewinn geht aktuell nur mit get_cur_price2 ID
+## Reingewinn geht aktuell nur mit get_cur_price2 ID
 get_cur_price2 <- function(ProduckteX, NameY1, BilanzX1, ID = F){
   preis_IDZ <- get_preis_ID2(BilanzX = BilanzX1, NameY = NameY1)
   cur_price <- ProduckteX %>%
@@ -88,36 +100,12 @@ fun_produkt_count <- function(ProduckteX, NameY){
 } 
 
 ## Funktion, die den komlpetten Warenbestand eines Produktes filtert.
-fun_war <- function(BilanzX, NameY){
+fun_war <- function(BilanzX, NameY, ProduckteZ){
   erg_war <- BilanzX %>% 
     filter(Name == NameY) %>% 
     arrange(Datum) %>% 
     mutate(cumsoll =  cumsum(Soll) - cumsum(Haben)) %>% 
     select(Datum, cumsoll)
   return(erg_war)
-}
-
-#Funktionen Für die Mitgliederverwaltung:
-
-#Funktion welche aus einem Jahreseintrag 12 Jahres einträge macht:
-#
-row_rep <- function(df, n) {
-  df[rep(1:nrow(df), times = n),]
-}
-month_member <- function(MitgliederX, NameY){
-  mit <- MitgliederX %>% 
-    filter(Name == NameY) %>% 
-    summarise(n = n())
-  if(unlist(mit < 12)){
-    new_mit <- data.frame(seq(1:12), row_rep(MitgliederX %>% 
-                                              filter(Name == NameY), 12))
-  }
-}
-
-get_mitglieder <- function(MitgliederX, NameY, DateZ){
-  mit2 <- MitgliederX %>% filter(Name == NameY) %>% 
-    mutate(year = year(Datum)) %>%
-  filter(year == DateZ)
-  return(mit2)
 }
 
