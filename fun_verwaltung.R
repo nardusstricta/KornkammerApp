@@ -36,3 +36,32 @@ get_mitglieder <- function(MitgliederX, NameY, DateZ){
   return(mit2)
 }
 
+#
+#Persönliche Rechnung:
+#
+
+#Funktion welche den aktuellen zubezahlenden Mitglederbeitrag in die Bilanz Tabelle schreibt:
+
+fun_pers_replace <- function(BilanzX, sum_sollY, DatumZ, NameA){
+  erg_mit2 <- BilanzX %>%
+    mutate(Soll = replace(Soll, Name == NameA & year(Datum) == DatumZ & Verwendung == "Mitgliedsbeitrag" & Soll > 0, sum_sollY)) 
+  return(erg_mit2)
+}
+
+per_bilanz_fun <- function(BilanzX, NameY, DatumZ){
+  erg <- BilanzX %>% 
+    filter(Name == NameY & year(Datum) == DatumZ) %>%
+    arrange(Datum) %>% 
+    group_by(Datum, Verwendung) %>% 
+    summarize(Soll = sum(Soll), Haben = sum(Haben))
+  return(erg)
+}
+
+kk_bilanz_fun <- function(BilanzX, DatumZ){
+  erg2 <- BilanzX %>% 
+    filter(year(Datum) == DatumZ) %>%
+    arrange(Datum) %>% 
+    group_by(Datum, Verwendung) %>% 
+    summarize(Soll = sum(Soll), Haben = sum(Haben))
+  return(erg2)
+}

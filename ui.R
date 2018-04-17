@@ -9,9 +9,8 @@ shinyUI(fluidPage(
   tabsetPanel(
   tabPanel("Einkaufen",
   sidebarLayout(
-      wellPanel(style="overflow:hidden;",
-                splitLayout(selectInput(inputId = 'Name', label = 'Vorname', 
-                                        choices = c("Konto",  unique(mitglieder$Name)), selectize=F), 
+      wellPanel(splitLayout(selectInput(inputId = 'Name', label = 'Vorname', 
+                                        choices = c("Konto",  unique(mitglieder$Name))), 
                             dateInput("date1", "Bestelldatum:", value = Sys.Date())),
                 splitLayout(selectInput(inputId = "produckt", label = "Produckt", 
                                         choices = unique(c("Auswahl",  produckte$Name)), selectize=F),
@@ -76,10 +75,13 @@ tabPanel("Verwaltung",
            wellPanel(strong("Hier kannst du deine Kontoauszüge einsehen und als pdf speichern, Informationen über deine Mitgliedschaft ändern (z.B. wenn sich die Anzahl der Mitglieder in deiner Mitgliedschaft ändert) und die Jahresbilanz der Kornkammer einsehen."),
              splitLayout(
            selectInput("ver_name", "Name", choices = c("Auswahl", unique(mitglieder$Name))),
-           selectInput("ver_date", "Jahr", choices = 2015:2025)
-         ))),mainPanel(
-           actionButton("ver_save", 'speichern', style = "color: black;background-color: yellow"),
-           dataTableOutput("table3")
+           selectInput("ver_date", "Jahr", choices = 2015:2025)),
+           actionButton("ver_bearbeiten", 'bearbeiten', style = "color: white;background-color: red"),
+           actionButton("ver_save", 'speichern', style = "color: black;background-color: yellow"), 
+           downloadButton('pers_rechn', label="Eingene Rechnung"),
+           downloadButton('kk_rechn', label="KK Jahresbilanz")
+         )),mainPanel(
+           DTOutput('x1')
          )
 ),
 tabPanel("aktueller Warenstand",

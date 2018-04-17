@@ -287,22 +287,116 @@ shinyServer(function(input, output, session) {
   #Tab4 Verwaltung:
   #
   
-  output$table3 <- renderDataTable({
-      datatable(
-      get_mitglieder(
-        MitgliederX=mitglieder, NameY =input$ver_name, DateZ = input$ver_date
-      ), 
-      editable = T, selection = 'single',
-      # Hide logical columns
-      options=list(
-        columnDefs = list(list(visible=FALSE, targets=c(6,7)))
-      )
-    )}
-  )
-  observeEvent(input$ver_save, {
-    test <<- input$table3_cell_edit
+ 
+  observeEvent(input$ver_bearbeiten,{
+    x <- get_mitglieder(MitgliederX=mitglieder, NameY = input$ver_name, DateZ = input$ver_date)
+    if(exists("x")) {
+      output$x1 = renderDT(x,selection = 'none', rownames = F, editable = T)
+      x$Date = Sys.time() + seq_len(nrow(x))
+      
+      proxy <<- dataTableProxy('x1')
+      
+      observeEvent(input$x1_cell_edit, {
+        info = input$x1_cell_edit
+        #str(info)
+        i = info$row
+        j = info$col + 1  # column index offset by 1
+        v = info$value
+        x[i, j] <<- DT::coerceValue(v, x[i, j]) #vlt. ohne glob.env
+        replaceData(proxy, x, resetPaging = FALSE, rownames = FALSE)
+        xtest22 <<- x
+      })}
+  })
+  observeEvent(input$ver_save,{
+    replaceData(proxy, NULL, rownames = FALSE)
+    testx <- xtest22 %>% 
+      select(-Monat, -Date) %>% 
+      mutate(Anzahl_Personen = as.numeric(as.character(Anzahl_Personen))) %>% 
+      mutate(Forderung_mtl = Anzahl_Personen * 3)
+    
+    mitglieder_neu <<- mitglieder %>% 
+      mutate(Forderung_mtl = replace(Forderung_mtl, Name == input$ver_name & year(Datum) == input$ver_date, testx$Forderung_mtl)) %>% 
+      mutate(Anzahl_Personen = replace(Anzahl_Personen, Name == input$ver_name & year(Datum) == input$ver_date, testx$Anzahl_Personen)) %>% 
+      mutate(E_Mail = replace(E_Mail, Name == input$ver_name & year(Datum) == input$ver_date, testx$E_Mail))
+    if(nrow(mitglieder)==nrow(mitglieder_neu)){
+    mitglieder <<- mitglieder_neu
+    write.table(mitglieder, "mitglieder.csv", sep = ",", row.names = F)
+    
+    #Aktualisieren der Bilanz Tabelle
+    bilanz_neu <<- fun_pers_replace(BilanzX=bilanz, sum_sollY=sum(testx$Forderung_mtl), DatumZ = input$ver_date, NameA=input$ver_name)
+    if(nrow(bilanz)==nrow(bilanz_neu)){
+    bilanz <<- bilanz_neu 
+    write.table(bilanz, "buchhaltung.csv", sep = ",", row.names = F)
+    showModal(modalDialog(
+      title = "Die Änderung war erfolgreich!",
+      paste("Du hast jetzt einen neuen Jahresbeitrag von", sum(testx$Forderung_mtl)),
+      easyClose = TRUE
+    ))
+    }else{
+      rm(bilanz_neu)
+      showModal(modalDialog(
+        title = "Die Änderung leider nicht erfolgreich!",
+        paste("Lade die App neu vlt geht es dann besser", sum(testx$Forderung_mtl)),
+        easyClose = TRUE))
+    }}else{
+      rm(mitglieder_neu)
+      showModal(modalDialog(
+        title = "Die Änderung leider nicht erfolgreich!",
+        paste("Lade die App neu vlt geht es dann besser", sum(testx$Forderung_mtl)),
+        easyClose = TRUE)) 
+    }
+    rm(testx, xtest22, bilanz_neu, mitglieder_neu, proxy)
+    updateTextInput(session, "ver_name", value = "Auswahl")
   })
   
+  
+  output$pers_rechn <- downloadHandler(
+    filename = "pers_rechn.pdf",
+    content = function(file){
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "pers_rechn.Rmd")
+      file.copy("pers_rechn.Rmd", tempReport, overwrite = TRUE)
+      # Set up parameters to pass to Rmd document
+      params <- list(
+        n = per_bilanz_fun(
+          BilanzX = bilanz,
+          NameY = input$ver_name,
+          DatumZ = input$ver_date
+        )
+      )
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
+  output$kk_rechn <- downloadHandler(
+    # For PDF output, change this to "report.pdf"
+    filename = "kk_bilanz.pdf",
+    content = function(file){
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "kk_bilanz.Rmd")
+      file.copy("kk_bilanz.Rmd", tempReport, overwrite = TRUE)
+      # Set up parameters to pass to Rmd document
+      params <- list(
+        n = kk_bilanz_fun(
+          BilanzX = bilanz,
+          DatumZ = input$ver_date
+        )
+      )
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
+ 
   #      
   # Tab5 Aktueller Warenstand:------
   # 
