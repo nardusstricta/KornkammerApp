@@ -69,7 +69,8 @@ shinyUI(
                      textOutput("Kontostand"),
                      textOutput("Lieferant")
                    )
-                 ),
+                   ),
+                 
                  mainPanel(
                    actionButton("kaufen", 'Kaufen', style = "color: black;background-color: yellow"),
                    strong("Dein lieber Warenkorb:"),
