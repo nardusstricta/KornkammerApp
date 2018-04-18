@@ -8,6 +8,9 @@ library(rdrop2)
 token <<- readRDS("token.rds")
 drop_acc(dtoken = token)
 
+source("fun.R")
+source("fun_verwaltung.R")
+
 bilanz_imp <- drop_read_csv("buchhaltung.csv")#, colClasses = c("Date",  "character", "numeric", "numeric", "character","integer","integer"))
 
 mitglieder_imp <- drop_read_csv("mitglieder.csv")#, colClasses = c("integer", "integer", "character", "character", "integer", "Date"))
@@ -22,6 +25,17 @@ mitglieder <<- read_csv("mitglieder.csv",
                         col_types = cols(Datum = col_date(format = "%Y-%m-%d"))
 )
 produckte <<- read_csv("produckt.csv")
+
+## Bei Jahreswechsel werden automatisch für jeden Account neue Zeilen erstellt, für jeden Monat.
+## !!! Achtung! wenn schon händisch eine Zeile des neuen Jahres eingetragen wurde, bevor diese Funktion abgeschickt wurde, wird das nicht mehr passieren!
+if(lubridate::year(max(mitglieder$Datum)) != year(Sys.Date())){
+  mitglieder_neu <- expand_mitglieder(mitglieder)
+  write_csv(mitglieder_neu, "mitglieder.csv")
+  mitglieder <<- read_csv("mitglieder.csv", 
+                          col_types = cols(Datum = col_date(format = "%Y-%m-%d")))
+}
+
+
 ########################################
 
 shinyUI(
@@ -35,7 +49,7 @@ shinyUI(
                        inputId = 'Name', 
                        label = 'Vorname', 
                        choices = unique(c("Konto", mitglieder$Name)), 
-                       selectize=F
+                       selectize=T
                      ), 
                      dateInput("date1", "Bestelldatum:", value = Sys.Date())
                    ),

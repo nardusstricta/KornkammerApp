@@ -1,23 +1,3 @@
-library(shiny)
-library(DT)
-library(tidyverse)
-library(lubridate)
-
-bilanz <<- read_csv("buchhaltung.csv")
-mitglieder <<- read_csv(
-  "mitglieder.csv", 
-  col_types = cols(Datum = col_date(format = "%Y-%m-%d"))
-)
-## Bei Jahreswechsel werden automatisch für jeden Account neue Zeilen erstellt, für jeden Monat.
-## !!! Achtung! wenn schon händisch eine Zeile des neuen Jahres eingetragen wurde, bevor diese Funktion abgeschickt wurde, wird das nicht mehr passieren!
-if(lubridate::year(max(mitglieder$Datum)) != year(Sys.Date())){
-  mitglieder_neu <- expand_mitglieder(mitglieder)
-  write_csv(mitglieder_neu, "mitglieder.csv")
-  mitglieder <<- read_csv("mitglieder.csv", 
-                          col_types = cols(Datum = col_date(format = "%Y-%m-%d")))
-}
-
-produckte <<- read_csv("produckt_info.csv")
 
 
 ## Funktion, die die aktuelle Preis_Id berechnet, mit der man das Produkt einkauft.
