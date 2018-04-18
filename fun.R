@@ -21,7 +21,7 @@ get_preis_ID2 <- function(BilanzX, NameY){
     filter(Name == NameY & Preis_ID == preis_ID$z) %>% 
     summarise(Haben = sum(Haben)-sum(Soll))
 
-  if(AktuelleID > 0){ ## wenn T, dann muss neue ID vergeben werden
+  if(AktuelleID >= 0){ ## wenn T, dann muss neue ID vergeben werden
     aktuellePreis_ID <- preis_ID$z + 1
   } else {
     aktuellePreis_ID <- preis_ID$z
@@ -57,7 +57,7 @@ get_cur_Lieferant <- function(ProduckteX, NameY1, BilanzX1){
 #Funktion eigener Kontostand: ## muss noch erweitert werden (-Einlage - Mitgliederbeiträge)
 fun_kont <- function(BilanzX, NameY){
     BilanzX %>% 
-    filter(Name == NameY) %>% 
+    filter(Name == NameY & Verwendung %in% c("Einkauf", "Einzahlung")) %>% 
     arrange(Datum) %>% 
     mutate(cumsoll =  cumsum(Haben) - cumsum(Soll)) %>% 
     summarise(cumsoll = last(cumsoll))
@@ -71,21 +71,6 @@ fun_einh <- function(ProduckteX, NameY){
   select(Einheit)
 }
 
-## Funktion, die den neu eingebuchten Produkten die Preis_ID gibt:
-fun_produkt_count <- function(ProduckteX, NameY){
-  erg <- ProduckteX %>% 
-    filter(Name == NameY) %>% 
-    summarise(max_ID = max(Preis_ID))
-  return(erg + 1)
-} 
 
-## Funktion, die den komlpetten Warenbestand eines Produktes filtert.
-fun_war <- function(BilanzX, NameY, ProduckteZ){
-  erg_war <- BilanzX %>% 
-    filter(Name == NameY) %>% 
-    arrange(Datum) %>% 
-    mutate(cumsoll =  cumsum(Soll) - cumsum(Haben)) %>% 
-    select(Datum, cumsoll)
-  return(erg_war)
-}
+
 

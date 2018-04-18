@@ -100,7 +100,7 @@ shinyServer(function(input, output, session) {
               sep = ",", col.names = F, append = T, row.names = F
             )
             bilanz <<- read_csv("buchhaltung.csv")
-            drop_upload("buchhaltung.csv")
+            #drop_upload("buchhaltung.csv")
             
             updateTextInput(session, "Name", value = "Konto")
           }
@@ -234,7 +234,7 @@ shinyServer(function(input, output, session) {
                      )
                     bilanz <<- read_csv("buchhaltung.csv")
                      
-                     drop_upload("buchhaltung.csv")
+                     #drop_upload("buchhaltung.csv")
                      
                      
                      inp_produckt_temp <- data.frame(
@@ -250,7 +250,7 @@ shinyServer(function(input, output, session) {
                        sep = ",", col.names = F, append = T, row.names = F
                      )
                      produckte <<- read_csv("produckt.csv")
-                     drop_upload("produckt.csv")
+                     #drop_upload("produckt.csv")
                    }) 
       values_inp$df_inp <- inp_temp_ini ## Inputwerte werden aus initialWerte gesetzt.
       showModal(modalDialog( ## Bestätigung, dass es geklappt hat.
@@ -381,9 +381,9 @@ shinyServer(function(input, output, session) {
       )
     if(nrow(mitglieder)==nrow(mitglieder_neu)){
       
-      mitglieder <- mitglieder_neu
+      mitglieder <<- mitglieder_neu
       write.table(mitglieder, "mitglieder.csv", sep = ",", row.names = F)
-      drop_upload("mitglieder.csv")
+      #drop_upload("mitglieder.csv")
       #Aktualisieren der Bilanz Tabelle
       bilanz_neu <- fun_pers_replace(
         BilanzX=bilanz, 
@@ -393,9 +393,9 @@ shinyServer(function(input, output, session) {
       )
       if(nrow(bilanz)==nrow(bilanz_neu)){
         
-        bilanz <- bilanz_neu 
+        bilanz <<- bilanz_neu 
         write.table(bilanz, "buchhaltung.csv", sep = ",", row.names = F)
-        drop_upload("buchhaltung.csv")
+        #drop_upload("buchhaltung.csv")
         
         showModal(modalDialog(
           title = "Die Änderung war erfolgreich!",
@@ -476,26 +476,51 @@ shinyServer(function(input, output, session) {
   # Tab5 Aktueller Warenstand:------
   # 
   output$war_slider <- renderUI({
+    dateRange <- range(
+      fun_war(BilanzX = bilanz, NameY = input$war_name, ProduckteZ = produckte)$Datum
+    )
     dateRangeInput(
       "war_date_from",
       "Daten von:",
-      min = min(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
-      max = max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum),
-      start = Sys.Date()-2, end = max(fun_war(BilanzX = bilanz, NameY = input$war_name)$Datum)
+      min = dateRange[1],
+      max = dateRange[2],
+      start = Sys.Date()-2, 
+      end = dateRange[2]
     )
   })
   
   output$war_plot <- renderPlot({
-    zwar <- fun_war(BilanzX = bilanz, NameY = input$war_name)
+    zwar <- fun_war(BilanzX = bilanz, NameY = input$war_name, ProduckteZ = produckte)
     min <- as.character(input$war_date_from[1])
     max <- as.character(input$war_date_from[2])
     
     # draw the histogram with the specified number of bins
-    ggplot(zwar[zwar$Datum >= min & zwar$Datum <= max, ], aes(x=Datum, y=cumsoll))+
-      geom_line()+
-      #geom_smooth()+
-      labs(title=paste("Num")) +
-      xlab("Time") +
-      ylab("NumP") 
+    if(as.numeric(diff(range(zwar$Datum))) != 0){
+        ggplot(zwar[zwar$Datum >= min & zwar$Datum <= max, ], aes(x=Datum, y=cumsoll))+
+          geom_line()+
+          #geom_smooth()+
+          labs(title=input$war_name) +
+          xlab("Time") +
+          ylab(paste(input$war_name, " in ", unique(zwar$Einheit))) 
+    } else {
+      ggplot(iris, aes(Sepal.Length, Sepal.Width))
+      #strong("Zu wenig Daten für einen Plot")
+    }
+    
+  })
+  output$Warenbestand_gesamt <- renderDT({
+    warenbestand <- fun_war_all(
+      BilanzX = bilanz, ProduckteZ = produckte
+    )
+    datatable(
+      warenbestand,
+      options=list(columnDefs = list(list(visible=FALSE, targets=c(3,5,6))))
+    ) %>% 
+      formatStyle(
+        0, target = "row", 
+        backgroundColor = styleEqual(
+          1:length(warenbestand$relativeDa), warenbestand$color
+        )
+      )
   })
 })  
