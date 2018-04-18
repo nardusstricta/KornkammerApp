@@ -9,9 +9,9 @@ library(rdrop2)
 ########################################
 
 shinyUI(
-  fluidPage(
-    tabsetPanel(
-      tabPanel("Einkaufen",
+  navbarPage("KornkammerApp",
+             tabPanel(
+               "Einkaufen",
                sidebarLayout(
                  wellPanel(
                    splitLayout(
@@ -46,13 +46,21 @@ shinyUI(
                    dataTableOutput("table1")
                  )
                )
-      ),
-      tabPanel("Produckte Importiern",
+               
+             ),
+             tabPanel(
+               "Produckte Einbuchen",
                sidebarLayout(
                  wellPanel(
                    splitLayout(
-                     selectInput("inp_name", "Produckt", choices = c("Auswahl", unique(produckte$Name)),  selectize=F),
-                     selectInput("inp_lieferant", "Lieferant", choices = c("Auswahl", unique(produckte$Lieferant)),  selectize=F),
+                     selectInput(
+                       "inp_name", "Produckt", 
+                       choices = c("Auswahl", unique(produckte$Name)),  selectize=F
+                     ),
+                     selectInput(
+                       "inp_lieferant", "Lieferant", 
+                       choices = c("Auswahl", unique(produckte$Lieferant)),  selectize=F
+                     ),
                      numericInput("inp_preis", "Gesamtpreis", min = 1, max = 1000, value = 0)),
                    splitLayout(
                      selectInput("inp_einheit", "Einheit", choices = c("kg", "g", "l"),  selectize=F),
@@ -73,41 +81,66 @@ shinyUI(
                    dataTableOutput("table2")
                  )
                )
-      ),
-      tabPanel("Konotauszug importiern",
-               sidebarLayout(
-                 wellPanel(
-                   fileInput("import", "Load Model Data",
-                             accept = c(
-                               "text/csv",
-                               "text/comma-separated-values,text/plain",
-                               ".csv"),
-                             buttonLabel = "Suchen"),
-                   actionButton("save_gls", 'speichern', style = "color: white;background-color: red")
-                 ),
-                 mainPanel(
-                   rHandsontableOutput("hot")
-                 ))),
-      tabPanel("Verwaltung",
-               sidebarPanel(
-                 wellPanel(strong("Hier kannst du deine Kontoauszüge einsehen und als pdf speichern, Informationen über deine Mitgliedschaft ändern (z.B. wenn sich die Anzahl der Mitglieder in deiner Mitgliedschaft ändert) und die Jahresbilanz der Kornkammer einsehen."),
-                           splitLayout(
-                             selectInput("ver_name", "Name", choices = c("Auswahl", unique(mitglieder$Name))),
-                             selectInput("ver_date", "Jahr", choices = 2015:2025)),
-                           actionButton("ver_bearbeiten", 'bearbeiten', style = "color: white;background-color: red"),
-                           actionButton("ver_save", 'speichern', style = "color: black;background-color: yellow"), 
-                           downloadButton('pers_rechn', label="Eingene Rechnung"),
-                           downloadButton('kk_rechn', label="KK Jahresbilanz")
-                 )),mainPanel(
-                   DTOutput('x1')
-                 )
-      ),
-      tabPanel("aktueller Warenstand",
-               titlePanel(title=h4("aktueller Warenstand", align="center")),
-               sidebarPanel( 
-                 selectInput("war_name", "Produckt", choices = c("Auswahl", unique(produckte$Name)),  selectize=F),
-                 uiOutput("war_slider")),
-               mainPanel(plotOutput("war_plot"))
-      )
-    ))
+               
+             ),
+             tabPanel("Konotauszug importiern",
+                      sidebarLayout(
+                        wellPanel(
+                          fileInput("import", "Load Model Data",
+                                    accept = c(
+                                      "text/csv",
+                                      "text/comma-separated-values,text/plain",
+                                      ".csv"),
+                                    buttonLabel = "Suchen"),
+                          actionButton("save_gls", 'speichern', style = "color: white;background-color: red")
+                        ),
+                        mainPanel(
+                          rHandsontableOutput("hot")
+                        ))),
+             navbarMenu(
+               "Verwaltung",
+               tabPanel("Kontoauszug",
+                        strong("Hier kannst du deine Kontoauszüge einsehen und als pdf speichern"), 
+                        downloadButton('pers_rechn', label="Eingene Rechnung")),
+               tabPanel(
+                 "Mitgliedschaft ändern",
+                 sidebarPanel(
+                   wellPanel(
+                     strong("Hier kannst du Informationen über deine Mitgliedschaft ändern (z.B. wenn sich die Anzahl der Mitglieder in deiner Mitgliedschaft ändert)"),
+                     splitLayout(
+                       selectInput("ver_name", "Name", choices = c("Auswahl", unique(mitglieder$Name))),
+                       selectInput("ver_date", "Jahr", choices = 2015:2025)),
+                     actionButton("ver_bearbeiten", 'bearbeiten', style = "color: white;background-color: red"),
+                     actionButton("ver_save", 'speichern', style = "color: black;background-color: yellow")
+                     
+                   )),mainPanel(
+                     DTOutput('x1')
+                   )
+                 
+               ) ,
+               tabPanel("allgemeine Jahresbilanz",
+                        strong("Hier kannst du die Jahresbilanz der Kornkammer einsehen."),
+                        downloadButton('kk_rechn', label="KK Jahresbilanz"))
+               
+             ),
+             
+             navbarMenu("aktueller Warenbestand",
+                        tabPanel(
+                          "Warenbestand graphisch",
+                          titlePanel(title=h4("aktueller Warenstand", align="center")),
+                          sidebarPanel(
+                            
+                            selectInput(
+                              "war_name",
+                              "Produckt", 
+                              choices = c("Auswahl", unique(produckte$Name)),  
+                              selectize=F
+                            ),
+                            uiOutput("war_slider")
+                          ),
+                          mainPanel(plotOutput("war_plot"))
+                          
+                        ),
+                        tabPanel("Warenbestand tabellarisch"))
+  )
 )
