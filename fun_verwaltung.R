@@ -8,21 +8,25 @@ library(lubridate)
 
 #Funktion welche aus einem Jahreseintrag 12 Jahreseinträge macht:
 #
+
 expand_mitglieder <- function(MitgliederX){
+  MitgliederX$E_Mail[is.na(MitgliederX$E_Mail)] <- "k.A"
   last_entry_exp <- MitgliederX %>% 
     group_by(Name) %>% # gruppierung nach den Namen
-    filter(Datum == max(Datum) & Anzahl_Personen > 0) %>% ## letztes Datum auswählen (Dez) um die letzten Aktuellen Daten zu übernehmen + Kündigungen nicht übernehmen.
-    expand( # für jeden Account werden neue Zeilen angfügt, bis zum Dezember des laufenden Jahres.
+    filter(Datum == max(Datum)) %>% ## letztes Datum auswählen (Dez) um die letzten Aktuellen Daten zu übernehmen.
+    filter(Anzahl_Personen > 0) %>% ##Kündigungen nicht übernehmen
+    tidyr::expand( # für jeden Account werden neue Zeilen angfügt, bis zum Dezember des laufenden Jahres.
       Anzahl_Personen, Mitgliedsnummer, E_Mail, Forderung_mtl, 
       Datum = seq(
-        from = date(max(Datum)), 
-        to = lubridate::ymd(paste0( year(Sys.Date()), "-", "12-","01")), 
+        from = lubridate::date(max(Datum)), 
+        to = lubridate::ymd(paste0( lubridate::year(Sys.Date()), "-", "12-","01")), 
         by = "month"
       )
     )
   MitgliederNeu <- dplyr::union(MitgliederX, last_entry_exp)
   return(MitgliederNeu)
 }
+
 
 get_mitglieder <- function(MitgliederX, NameY, DateZ){
   mit2 <- MitgliederX %>% 

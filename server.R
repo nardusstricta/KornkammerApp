@@ -435,8 +435,8 @@ shinyServer(function(input, output, session) {
       params <- list(
         n = per_bilanz_fun(
           BilanzX = bilanz,
-          NameY = input$ver_name,
-          DatumZ = input$ver_date
+          NameY = input$ver_name1,
+          DatumZ = input$ver_date1
         )
       )
       rmarkdown::render(
@@ -460,7 +460,7 @@ shinyServer(function(input, output, session) {
       params <- list(
         n = kk_bilanz_fun(
           BilanzX = bilanz,
-          DatumZ = input$ver_date
+          DatumZ = input$ver_date2
         )
       )
       rmarkdown::render(
