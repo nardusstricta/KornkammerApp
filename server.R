@@ -1,5 +1,4 @@
 
-
 #Temp Ordner Tabelle
 
 
@@ -80,9 +79,11 @@ shinyServer(function(input, output, session) {
                          bilanz_temp <- rbind(user_temp, prod_temp)
                          
                          write.table(
-                           bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F
+                          bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F
                          )
-                         bilanz <<- read_csv("buchhaltung.csv")
+                         ##bilanz <<- read_csv("buchhaltung.csv")
+                         drop_upload("buchhaltung.csv")
+                         bilanz <<- drop_read_csv("buchhaltung.csv",colClasses = c("Date",  "character", "numeric", "numeric", "character","integer","integer"))
                          updateTextInput(session, "Name", value = "Konto")
                        }) 
           values$df <- data_temp_ini
@@ -199,10 +200,14 @@ shinyServer(function(input, output, session) {
                        Preis_ID = inp_temp$Preis_ID, 
                        Rechnungs_ID = inp_temp$Rechnungs_ID
                      )
+                     
                      write.table(
-                       inp_bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F
+                      inp_bilanz_temp, "buchhaltung.csv", sep = ",", col.names = F, append = T, row.names = F
                      )
-                     bilanz <<- read_csv("buchhaltung.csv")
+                    # bilanz <<- read_csv("buchhaltung.csv")
+                     
+                     drop_upload("buchhaltung.csv")
+                     bilanz <<- drop_read_csv("buchhaltung.csv",colClasses = c("Date",  "character", "numeric", "numeric", "character","integer","integer"))
                      
                      inp_produckt_temp <- data.frame(
                        Preis_ID = inp_temp$Preis_ID,
@@ -213,9 +218,11 @@ shinyServer(function(input, output, session) {
                        Datum = inp_temp$Datum
                      )
                      write.table(
-                       inp_produckt_temp, "produckt_info.csv", sep = ",", col.names = F, append = T, row.names = F
+                       inp_produckt_temp, "produckt.csv", sep = ",", col.names = F, append = T, row.names = F
                      )
-                     produckte <<- read_csv("produckt_info.csv")
+                     #produckte <<- read_csv("produckt.csv")
+                     drop_upload("produckt.csv")
+                     produckte <<- drop_read_csv("produckt.csv",colClasses = c("integer", "character", "character", "numeric", "character", "Date"), sep = ",")
                    }) 
       values_inp$df_inp <- inp_temp_ini ## Inputwerte werden aus initialWerte gesetzt.
       showModal(modalDialog( ## Bestätigung, dass es geklappt hat.
@@ -262,12 +269,11 @@ shinyServer(function(input, output, session) {
   observeEvent(input$import, {
    DF_in <- read_csv(input$import$datapath, col_types = cols(Wertstellung = col_date(format = "%d.%m.%Y")))
    tmp_df <<- DF_in
-  })
 
  
   output$hot <- renderRHandsontable({
     if (exists("tmp_df")) {
-      DF <- tmp_df
+      DF <<- tmp_df
       message("*** loaded data frame from file ***")
       rm(tmp_df, envir = .GlobalEnv)
     }
@@ -275,14 +281,14 @@ shinyServer(function(input, output, session) {
     rhandsontable(DF, rowHeaders = NULL) %>%
                   hot_validate_character(cols = "Buchungstext", choices = unique(bilanz$Verwendung))
     
-    
+  }) 
   })
   
   observeEvent(input$save_gls, {
    test <<- isolate(hot_to_r(input$hot))
-   rm(DT)
+   rm(DF)
  })
-  
+
   #
   #Tab4 Verwaltung:
   #
@@ -314,19 +320,29 @@ shinyServer(function(input, output, session) {
       mutate(Anzahl_Personen = as.numeric(as.character(Anzahl_Personen))) %>% 
       mutate(Forderung_mtl = Anzahl_Personen * 3)
     
-    mitglieder_neu <<- mitglieder %>% 
+    mitglieder_neu <- mitglieder %>% 
       mutate(Forderung_mtl = replace(Forderung_mtl, Name == input$ver_name & year(Datum) == input$ver_date, testx$Forderung_mtl)) %>% 
       mutate(Anzahl_Personen = replace(Anzahl_Personen, Name == input$ver_name & year(Datum) == input$ver_date, testx$Anzahl_Personen)) %>% 
       mutate(E_Mail = replace(E_Mail, Name == input$ver_name & year(Datum) == input$ver_date, testx$E_Mail))
     if(nrow(mitglieder)==nrow(mitglieder_neu)){
-    mitglieder <<- mitglieder_neu
+    mitglieder <- mitglieder_neu
+    
+    
     write.table(mitglieder, "mitglieder.csv", sep = ",", row.names = F)
+    drop_upload("mitglieder.csv")
+    produckte <<- drop_read_csv("mitglieder.csv",colClasses = c("integer", "integer", "character", 
+                                                                "character", "integer", 
+                                                                "Date"
+    ))
     
     #Aktualisieren der Bilanz Tabelle
-    bilanz_neu <<- fun_pers_replace(BilanzX=bilanz, sum_sollY=sum(testx$Forderung_mtl), DatumZ = input$ver_date, NameA=input$ver_name)
+    bilanz_neu <- fun_pers_replace(BilanzX=bilanz, sum_sollY=sum(testx$Forderung_mtl), DatumZ = input$ver_date, NameA=input$ver_name)
     if(nrow(bilanz)==nrow(bilanz_neu)){
-    bilanz <<- bilanz_neu 
+    bilanz <- bilanz_neu 
     write.table(bilanz, "buchhaltung.csv", sep = ",", row.names = F)
+    drop_upload("buchhaltung.csv")
+    bilanz <<- drop_read_csv("buchhaltung.csv",colClasses = c("Date",  "character", "numeric", "numeric", "character","integer","integer"))
+    
     showModal(modalDialog(
       title = "Die Änderung war erfolgreich!",
       paste("Du hast jetzt einen neuen Jahresbeitrag von", sum(testx$Forderung_mtl)),
@@ -345,9 +361,10 @@ shinyServer(function(input, output, session) {
         paste("Lade die App neu vlt geht es dann besser", sum(testx$Forderung_mtl)),
         easyClose = TRUE)) 
     }
-    rm(testx, xtest22, bilanz_neu, mitglieder_neu, proxy)
+    #rm(testx, xtest22, bilanz_neu, mitglieder_neu, proxy)
     updateTextInput(session, "ver_name", value = "Auswahl")
   })
+ 
   
   
   output$pers_rechn <- downloadHandler(
