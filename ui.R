@@ -5,7 +5,23 @@ library(tidyverse)
 library(lubridate)
 library(rdrop2)
 
+token <<- readRDS("token.rds")
+drop_acc(dtoken = token)
 
+bilanz_imp <- drop_read_csv("buchhaltung.csv")#, colClasses = c("Date",  "character", "numeric", "numeric", "character","integer","integer"))
+
+mitglieder_imp <- drop_read_csv("mitglieder.csv")#, colClasses = c("integer", "integer", "character", "character", "integer", "Date"))
+produckte_imp <<- drop_read_csv("produckt.csv")#,colClasses = c("integer", "character", "character", "numeric", "character", "Date"), sep = ",")
+
+write.table(bilanz_imp, "buchhaltung.csv", sep = ",", col.names = T, append = F, row.names = F)
+write.table(mitglieder_imp , "mitglieder.csv", sep = ",", col.names = T, append = F, row.names = F)
+write.table(produckte_imp, "produckt.csv", sep = ",", col.names = T, append = F, row.names = F)
+
+bilanz <<- read_csv("buchhaltung.csv")
+mitglieder <<- read_csv("mitglieder.csv", 
+                        col_types = cols(Datum = col_date(format = "%Y-%m-%d"))
+)
+produckte <<- read_csv("produckt.csv")
 ########################################
 
 shinyUI(

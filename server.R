@@ -1,190 +1,3 @@
-token <<- readRDS("token.rds")
-drop_acc(dtoken = token)
-
-bilanz_imp <- drop_read_csv("buchhaltung.csv",colClasses = c("Date",  "character", "numeric", "numeric", "character","integer","integer"))
-
-mitglieder_imp <- drop_read_csv("mitglieder.csv", colClasses = c("integer", "integer", "character", 
-                                                                 "character", "integer", 
-                                                                 "Date"
-))
-produckte_imp <<- drop_read_csv("produckt.csv",colClasses = c("integer", "character", "character", "numeric", "character", "Date"), sep = ",")
-
-write.table(bilanz_imp, "buchhaltung.csv", sep = ",", col.names = T, append = F, row.names = F)
-write.table(mitglieder_imp , "mitglieder.csv", sep = ",", col.names = T, append = F, row.names = F)
-write.table(produckte_imp, "produckt.csv", sep = ",", col.names = T, append = F, row.names = F)
-
-bilanz <<- read_csv("buchhaltung.csv")
-mitglieder <<- read_csv("mitglieder.csv", 
-                        col_types = cols(Datum = col_date(format = "%Y-%m-%d"))
-)
-produckte <<- read_csv("produckt.csv")
-## Bei Jahreswechsel werden automatisch für jeden Account neue Zeilen erstellt, für jeden Monat.
-## !!! Achtung! wenn schon händisch eine Zeile des neuen Jahres eingetragen wurde, bevor diese Funktion abgeschickt wurde, wird das nicht mehr passieren!
-if(lubridate::year(max(mitglieder$Datum)) != year(Sys.Date())){
-  mitglieder_neu <- expand_mitglieder(mitglieder)
-  write_csv(mitglieder_neu, "mitglieder.csv")
-  mitglieder <<- read_csv("mitglieder.csv", 
-                          col_types = cols(Datum = col_date(format = "%Y-%m-%d")))
-}
-
-
-
-
-## Funktion, die die aktuelle Preis_Id berechnet, mit der man das Produkt einkauft.
-get_preis_ID2 <- function(BilanzX, NameY){ 
-  preis_ID <- BilanzX %>%
-    filter(Name == NameY & Verwendung == "Verkauf") %>% 
-    summarise(z = max(Preis_ID))## aktuelle Preis_ID
-  #Wenn noch kein Verkauf stattgefunden hat dann ist preis_ID = -inf dann soll die minimale Preis_ID genommen werden:
-  if(preis_ID == -Inf){
-    preis_ID <- BilanzX %>%
-      filter(Name == NameY) %>% 
-      summarise(z = min(Preis_ID))
-  }
-  
-  ## hier noch eine Warnmeldung einbauen, für den Fall, dass unter Reis andere Verwendungen gebucht wurden als Verkauf und Wareneinkauf.
-  if(unique(filter(BilanzX, Name == NameY)$Verwendung) %in% c("Verkauf", "Wareneinkauf")){
-    warning("Achtung ")
-  }
-  
-  AktuelleID <- BilanzX %>% 
-    filter(Name == NameY & Preis_ID == preis_ID$z) %>% 
-    summarise(Haben = sum(Haben)-sum(Soll))
-  
-  if(AktuelleID > 0){ ## wenn T, dann muss neue ID vergeben werden
-    aktuellePreis_ID <- preis_ID$z + 1
-  } else {
-    aktuellePreis_ID <- preis_ID$z
-  }
-  return(aktuellePreis_ID)
-}
-
-
-## Reingewinn geht aktuell nur mit get_cur_price2 ID
-get_cur_price2 <- function(ProduckteX, NameY1, BilanzX1, ID = F){
-  preis_IDZ <- get_preis_ID2(BilanzX = BilanzX1, NameY = NameY1)
-  cur_price <- ProduckteX %>%
-    filter(Name == NameY1 & Preis_ID == preis_IDZ)
-  
-  if(length(cur_price$Preis_ID)==0){
-    cur_price <- ProduckteX %>%
-      filter(Name == NameY1 & Preis_ID == preis_IDZ - 1)
-    ifelse(ID == T, return(cur_price$Preis_ID), return(cur_price$Preis))
-    
-  }else{
-    ifelse(ID == T, return(cur_price$Preis_ID), return(cur_price$Preis))
-  }
-}
-
-
-get_cur_Lieferant <- function(ProduckteX, NameY1, BilanzX1){
-  preis_IDZ <- get_preis_ID2(BilanzX = BilanzX1, NameY = NameY1)
-  cur_price <- ProduckteX %>%
-    filter(Name == NameY1 & Preis_ID == preis_IDZ)
-  return(cur_price$Lieferant)
-}
-
-#Funktion eigener Kontostand: ## muss noch erweitert werden (-Einlage - Mitgliederbeiträge)
-fun_kont <- function(BilanzX, NameY){
-  BilanzX %>% 
-    filter(Name == NameY) %>% 
-    arrange(Datum) %>% 
-    mutate(cumsoll =  cumsum(Haben) - cumsum(Soll)) %>% 
-    summarise(cumsoll = last(cumsoll))
-}
-
-#Funktion für die Einheiten:
-fun_einh <- function(ProduckteX, NameY){
-  ProduckteX %>% 
-    distinct(Name, Einheit) %>% 
-    filter(Name==NameY) %>% 
-    select(Einheit)
-}
-
-## Funktion, die den neu eingebuchten Produkten die Preis_ID gibt:
-fun_produkt_count <- function(ProduckteX, NameY){
-  erg <- ProduckteX %>% 
-    filter(Name == NameY) %>% 
-    summarise(max_ID = max(Preis_ID))
-  return(erg + 1)
-} 
-
-## Funktion, die den komlpetten Warenbestand eines Produktes filtert.
-fun_war <- function(BilanzX, NameY, ProduckteZ){
-  erg_war <- BilanzX %>% 
-    filter(Name == NameY) %>% 
-    arrange(Datum) %>% 
-    mutate(cumsoll =  cumsum(Soll) - cumsum(Haben)) %>% 
-    select(Datum, cumsoll)
-  return(erg_war)
-}
-
-##
-###Funktionen Für die Mitgliederverwaltung:
-
-#Funktion welche aus einem Jahreseintrag 12 Jahreseinträge macht:
-#
-expand_mitglieder <- function(MitgliederX){
-  last_entry_exp <- MitgliederX %>% 
-    group_by(Name) %>% # gruppierung nach den Namen
-    filter(Datum == max(Datum) & Anzahl_Personen > 0) %>% ## letztes Datum auswählen (Dez) um die letzten Aktuellen Daten zu übernehmen + Kündigungen nicht übernehmen.
-    expand( # für jeden Account werden neue Zeilen angfügt, bis zum Dezember des laufenden Jahres.
-      Anzahl_Personen, Mitgliedsnummer, E_Mail, Forderung_mtl, 
-      Datum = seq(
-        from = date(max(Datum)), 
-        to = lubridate::ymd(paste0( year(Sys.Date()), "-", "12-","01")), 
-        by = "month"
-      )
-    )
-  MitgliederNeu <- dplyr::union(MitgliederX, last_entry_exp)
-  return(MitgliederNeu)
-}
-
-get_mitglieder <- function(MitgliederX, NameY, DateZ){
-  mit2 <- MitgliederX %>% 
-    filter(Name == NameY) %>% 
-    filter(year(Datum) == DateZ) %>% 
-    arrange(Datum) %>% 
-    mutate(
-      Monat = paste0(lubridate::month(Datum, label = T), " ", lubridate::year(Datum))
-    ) %>% 
-    select(Monat, Anzahl_Personen, Mitgliedsnummer, Name, E_Mail, Forderung_mtl, Datum)
-  return(mit2)
-}
-
-#
-#Persönliche Rechnung:
-#
-
-#Funktion welche den aktuellen zubezahlenden Mitglederbeitrag in die Bilanz Tabelle schreibt:
-
-fun_pers_replace <- function(BilanzX, sum_sollY, DatumZ, NameA){
-  erg_mit2 <- BilanzX %>%
-    mutate(Soll = replace(Soll, Name == NameA & year(Datum) == DatumZ & Verwendung == "Mitgliedsbeitrag" & Soll > 0, sum_sollY)) 
-  return(erg_mit2)
-}
-
-per_bilanz_fun <- function(BilanzX, NameY, DatumZ){
-  erg <- BilanzX %>% 
-    filter(Name == NameY & year(Datum) == DatumZ) %>%
-    arrange(Datum) %>% 
-    group_by(Datum, Verwendung) %>% 
-    summarize(Soll = sum(Soll), Haben = sum(Haben))
-  return(erg)
-}
-
-kk_bilanz_fun <- function(BilanzX, DatumZ){
-  erg2 <- BilanzX %>% 
-    filter(year(Datum) == DatumZ) %>%
-    arrange(Datum) %>% 
-    group_by(Datum, Verwendung) %>% 
-    summarize(Soll = sum(Soll), Haben = sum(Haben))
-  return(erg2)
-}
-
-
-
-#Temp Ordner Tabelle
 
 
 shinyServer(function(input, output, session) {
@@ -287,14 +100,9 @@ shinyServer(function(input, output, session) {
               bilanz_temp, "buchhaltung.csv", 
               sep = ",", col.names = F, append = T, row.names = F
             )
-            ##bilanz <<- read_csv("buchhaltung.csv")
+            bilanz <<- read_csv("buchhaltung.csv")
             drop_upload("buchhaltung.csv")
-            bilanz <<- drop_read_csv(
-              "buchhaltung.csv",
-              colClasses = c(
-                "Date",  "character", "numeric", "numeric", "character","integer","integer"
-              )
-            )
+            
             updateTextInput(session, "Name", value = "Konto")
           }
         ) 
@@ -425,16 +233,10 @@ shinyServer(function(input, output, session) {
                       inp_bilanz_temp, "buchhaltung.csv", 
                       sep = ",", col.names = F, append = T, row.names = F
                      )
-                    # bilanz <<- read_csv("buchhaltung.csv")
+                    bilanz <<- read_csv("buchhaltung.csv")
                      
                      drop_upload("buchhaltung.csv")
-                     bilanz <<- drop_read_csv(
-                       "buchhaltung.csv",
-                       colClasses = c(
-                         "Date",  "character", "numeric", "numeric", 
-                         "character","integer","integer"
-                       )
-                     )
+                     
                      
                      inp_produckt_temp <- data.frame(
                        Preis_ID = inp_temp$Preis_ID,
@@ -448,15 +250,8 @@ shinyServer(function(input, output, session) {
                        inp_produckt_temp, "produckt.csv", 
                        sep = ",", col.names = F, append = T, row.names = F
                      )
-                     #produckte <<- read_csv("produckt.csv")
+                     produckte <<- read_csv("produckt.csv")
                      drop_upload("produckt.csv")
-                     produckte <<- drop_read_csv(
-                       "produckt.csv",
-                       colClasses = c(
-                         "integer", "character", "character", "numeric", "character", "Date"
-                       ), 
-                       sep = ","
-                     )
                    }) 
       values_inp$df_inp <- inp_temp_ini ## Inputwerte werden aus initialWerte gesetzt.
       showModal(modalDialog( ## Bestätigung, dass es geklappt hat.
@@ -590,10 +385,6 @@ shinyServer(function(input, output, session) {
       mitglieder <- mitglieder_neu
       write.table(mitglieder, "mitglieder.csv", sep = ",", row.names = F)
       drop_upload("mitglieder.csv")
-      produckte <<- drop_read_csv(
-        "mitglieder.csv",
-        colClasses = c("integer", "integer", "character", "character", "integer", "Date")
-      )
       #Aktualisieren der Bilanz Tabelle
       bilanz_neu <- fun_pers_replace(
         BilanzX=bilanz, 
@@ -606,12 +397,6 @@ shinyServer(function(input, output, session) {
         bilanz <- bilanz_neu 
         write.table(bilanz, "buchhaltung.csv", sep = ",", row.names = F)
         drop_upload("buchhaltung.csv")
-        bilanz <<- drop_read_csv(
-          "buchhaltung.csv",
-          colClasses = c(
-            "Date",  "character", "numeric", "numeric", "character","integer","integer"
-          )
-        )
         
         showModal(modalDialog(
           title = "Die Änderung war erfolgreich!",
