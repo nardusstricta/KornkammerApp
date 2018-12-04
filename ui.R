@@ -33,6 +33,12 @@ bilanz <<- read_csv("buchhaltung.csv")
 mitglieder <<- read_csv("mitglieder.csv", 
                         col_types = cols(Datum = col_date(format = "%Y-%m-%d"))
 )
+
+mitglieder <- mitglieder %>%
+  arrange(Datum) %>%
+  arrange(Mitgliedsnummer)
+
+
 produckte <<- read_csv("produckt.csv")
 
 ## Bei Jahreswechsel werden automatisch für jeden Account neue Zeilen erstellt, für jeden Monat.
@@ -150,7 +156,11 @@ shinyUI(
                        
                        splitLayout(
                          
-                         selectInput("ver_name", "Name", choices = c("Auswahl", unique(mitglieder$Name))),
+                         selectInput("ver_name", "Name", 
+                                     choices = c(
+                                       "Auswahl", 
+                                       paste0(unique(mitglieder$Name), " ", unique(mitglieder$Mitgliedsnummer))
+                                     )),
                          selectInput("ver_date", "Jahr", choices = 2015:2025),
                          tags$head(tags$style(HTML(".shiny-split-layout > div { overflow: visible;}")))
                        ),

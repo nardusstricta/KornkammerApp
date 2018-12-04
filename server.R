@@ -330,10 +330,13 @@ shinyServer(function(input, output, session) {
   #
   
   observeEvent(input$ver_bearbeiten,{
-    x <- get_mitglieder(MitgliederX=mitglieder, NameY = input$ver_name, DateZ = input$ver_date)
+    verName <- strsplit(input$ver_name, " ")[[1]][1:length(strsplit(input$ver_name, " ")[[1]])-1]
+    verName <- paste(verName, collapse = " ")
+    verNummer <- strsplit(input$ver_name, " ")[[1]][length(strsplit(input$ver_name, " ")[[1]])]
+    x <- get_mitglieder(MitgliederX=mitglieder, NameY = verName, NummerY = verNummer, DateZ = input$ver_date)
     if(exists("x")) {
       
-      output$x1 = renderDT(x,selection = 'none', rownames = F, editable = T)
+      output$x1 = renderDT(x, selection = 'none', rownames = F, editable = T)
       x$Date = Sys.time() + seq_len(nrow(x))
       
       proxy <<- dataTableProxy('x1')
@@ -351,31 +354,34 @@ shinyServer(function(input, output, session) {
     }
   })
   observeEvent(input$ver_save,{
-    replaceData(proxy, NULL, rownames = FALSE)
+    #replaceData(proxy, NULL, rownames = FALSE)
     testx <- xtest22 %>% 
       select(-Monat, -Date) %>% 
+      arrange(Datum) %>% 
       mutate(Anzahl_Personen = as.numeric(as.character(Anzahl_Personen))) %>% 
       mutate(Forderung_mtl = Anzahl_Personen * 3)
-    
+    verName <- strsplit(input$ver_name, " ")[[1]][1:length(strsplit(input$ver_name, " ")[[1]])-1]
+    verName <- paste(verName, collapse = " ")
     mitglieder_neu <- mitglieder %>% 
+      arrange(Datum) %>% 
       mutate(
         Forderung_mtl = replace(
           Forderung_mtl, 
-          Name == input$ver_name & year(Datum) == input$ver_date, 
+          Name == verName & year(Datum) == input$ver_date, 
           testx$Forderung_mtl
         )
       ) %>% 
       mutate(
         Anzahl_Personen = replace(
           Anzahl_Personen, 
-          Name == input$ver_name & year(Datum) == input$ver_date, 
+          Name == verName & year(Datum) == input$ver_date, 
           testx$Anzahl_Personen
         )
       ) %>% 
       mutate(
         E_Mail = replace(
           E_Mail, 
-          Name == input$ver_name & year(Datum) == input$ver_date, 
+          Name == verName & year(Datum) == input$ver_date, 
           testx$E_Mail
         )
       )
@@ -389,7 +395,7 @@ shinyServer(function(input, output, session) {
         BilanzX=bilanz, 
         sum_sollY=sum(testx$Forderung_mtl), 
         DatumZ = input$ver_date, 
-        NameA=input$ver_name
+        NameA=verName
       )
       if(nrow(bilanz)==nrow(bilanz_neu)){
         

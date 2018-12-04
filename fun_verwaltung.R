@@ -28,9 +28,9 @@ expand_mitglieder <- function(MitgliederX){
 }
 
 
-get_mitglieder <- function(MitgliederX, NameY, DateZ){
+get_mitglieder <- function(MitgliederX, NameY, NummerY, DateZ){
   mit2 <- MitgliederX %>% 
-    filter(Name == NameY) %>% 
+    filter(Name == NameY | Mitgliedsnummer == NummerY) %>% 
     filter(year(Datum) == DateZ) %>% 
     arrange(Datum) %>% 
     mutate(
